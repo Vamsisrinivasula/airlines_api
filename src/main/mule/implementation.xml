@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+	<flow name="fetch_flights_flow" doc:id="b7a1a3bc-77de-4618-ad69-95995ec4ccfd" >
+		<logger level="INFO" doc:name="Logger" doc:id="b61ac479-0213-425a-80da-8f28b09f7e5f" />
+		<salesforce:query doc:name="Query" doc:id="d0163146-2564-4da1-8bd1-aa5bccd5cdeb" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query ><![CDATA[SELECT Id, name__c, country__c, slogan__c, head_quarters__c, website__c, established__c, flight_id__c FROM airlines__c]]></salesforce:salesforce-query>
+			<salesforce:parameters ><![CDATA[#[output application/java
+---
+{
+	flight_id__c : 1234,
+}]]]></salesforce:parameters>
+		</salesforce:query>
+		<ee:transform>
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+(if(isEmpty(payload)){
+	
+	"message" : "no records available at target system"
+}else
+
+
+
+payload map {
+	country : $.country__c,
+	established : $.established__c,
+	flight_id : $.flight_id__c,
+	head_quarters :$.head_quarters__c,
+	name : $.name__c,
+	slogan : $.slogan__c,
+	website : $.website__c	})]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+	</flow>
+	<flow name="delete_flights_flow" doc:id="30ae91d4-c3ce-4406-908d-3dd20e2a2a7f" >
+		<set-variable doc:name="Set Variable" doc:id="23ee0761-6952-4205-a5b4-20298b58494b" variableName="flight_id" value="#[message.attributes.headers.flight_id]"/>
+		<salesforce:query doc:name="Query" doc:id="6fe7996d-c8b4-48eb-a385-9d235247c1c2" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query ><![CDATA[SELECT Id FROM airlines__c where flight_id__c = ':flight_id']]></salesforce:salesforce-query>
+			<salesforce:parameters ><![CDATA[#[{
+	flight_id : vars.flight_id
+}]]]></salesforce:parameters>
+		</salesforce:query>
+		<logger level="INFO" doc:name="Logger" doc:id="467ee881-cbfb-4f74-b9ec-7327a6d923cc" message="#[payload]"/>
+		<ee:transform doc:name="Transform Message" doc:id="1cc962c4-d054-4092-b4e4-85ad99c633e8" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map $.Id]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:delete doc:name="Delete" doc:id="1296d013-4d25-4e38-b1e8-893e3bea9852" config-ref="Salesforce_Config">
+		</salesforce:delete>
+		<ee:transform>
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  message: "record deleted sucessfully"
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+	</flow>
+	<flow name="upsert_flights_flow" doc:id="8328d2de-2172-44df-842e-0ec8ff188077" >
+		<logger level="INFO" doc:name="Logger" doc:id="f97cebc4-16fb-4843-85a1-8e2dda0661fa" />
+		<ee:transform doc:name="Transform Message" doc:id="d2b39144-524e-444c-8b96-08406e69cd18" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+message.payload.airlines map(airlines,indexofairlines) ->{
+	name__c: airlines.name as String,
+	country__c: airlines.country as String,
+	slogan__c: airlines.slogan as String,
+	head_quarters__c: airlines.head_quarters as String,
+	website__c: airlines.website as String,
+	established__c: airlines.established as String,
+	flight_id__c: airlines.flight_id as String
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:upsert doc:name="Upsert" doc:id="e12087c1-45f6-4683-893d-4343575c8b67" config-ref="Salesforce_Config" objectType="airlines__c" externalIdFieldName="Id"/>
+		<logger level="INFO" doc:name="Logger" doc:id="cd4b4834-a087-4f99-9406-95e4679a9918" />
+		<choice doc:name="Choice" doc:id="1228618d-3893-41ad-a144-48d2e5a7532b" >
+			<when expression="#[payload.successful == true]">
+				<ee:transform>
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  message: "record created sucessfully"
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+			</when>
+			<otherwise >
+				<raise-error doc:name="Raise error" doc:id="ec5c3942-2061-4d08-9d60-062b19c717ab" type="SF:FAILURE"/>
+			</otherwise>
+		</choice>
+	</flow>
+</mule>

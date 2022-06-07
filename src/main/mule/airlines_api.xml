@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd ">
+    <flow name="airlines_api-main">
+        <http:listener config-ref="global_airlines_api-httpListenerConfig" path="/api/flights">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body><![CDATA[#[payload]]]></http:body>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="airlines_api-config" />
+        <error-handler ref="global_errorhandling" />
+    </flow>
+    <flow name="airlines_api-console">
+        <http:listener config-ref="global_airlines_api-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body><![CDATA[#[payload]]]></http:body>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="airlines_api-config" />
+    </flow>
+    <flow name="put:\flights:application\json:airlines_api-config">
+        <logger level="INFO" doc:name="start_Logger" doc:id="ad8dbfa8-d9a9-4d08-bfef-ab381eead35d" />
+        <flow-ref doc:name="Flow Reference" doc:id="42d11752-95c7-4190-9ac8-5593cd5d530d" name="upsert_flights_flow" />
+        <logger level="INFO" doc:name="end_Logger" doc:id="11d7ca96-bebd-487c-a824-1a6002f578bf" message="#[payload]" />
+    </flow>
+    <flow name="delete:\flights:airlines_api-config">
+        <logger level="INFO" doc:name="start_Logger" doc:id="8a4bde0a-b485-4300-b3f6-0f68e8787047" message="#[payload]"/>
+		<flow-ref doc:name="Flow Reference" doc:id="14e4bdf7-4fa4-4a8a-801b-b2cb95d4d0b8" name="delete_flights_flow" />
+		<logger level="INFO" doc:name="end_Logger" doc:id="62933992-1683-4cb9-be35-f70695533d30" message="#[payload]"/>
+    </flow>
+    <flow name="get:\flights:airlines_api-config">
+        <logger level="INFO" doc:name="start_Logger" doc:id="2fb268ba-e026-4497-8ccb-c0ec865c803f" message="#[payload]"/>
+		<flow-ref doc:name="Flow Reference" doc:id="cec50cca-52cc-4a52-9abc-5331466838aa" name="fetch_flights_flow" />
+		<logger level="INFO" doc:name="end_Logger" doc:id="99d04469-5904-4aa3-809f-77c6edf2fd5f" message="#[payload]"/>
+    </flow>
+</mule>
